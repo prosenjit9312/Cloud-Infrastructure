@@ -47,3 +47,4 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   tags = each.value.tags
 }
+# newcode

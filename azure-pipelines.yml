@@ -1,0 +1,86 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool: app-agent
+
+stages:
+  - stage: build
+    displayName: build
+    jobs:
+      - job: terraforminit
+        pool: app-agent
+        displayName: init
+        steps:
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            commandOptions: '-reconfigure'
+            backendServiceArm: 'infra-service-mycloudservice-azureapp'
+            backendAzureRmStorageAccountName: 'pminfra'
+            backendAzureRmContainerName: 'infra-container'
+            backendAzureRmKey: 'infra.tfstate'
+  # - stage: scaning
+  #   jobs:
+  #     - job: scaing
+  #       displayName: scaning
+  #       pool: app-agent
+  #       steps:
+          
+
+
+  # Stage 1: Manual Approval
+  - stage: ManualApproval
+    displayName: Manual Approval
+    jobs:
+    - job: 
+      displayName: "Manual Approval Deployment Job"
+      pool: server
+     
+      steps:
+      - task: ManualValidation@0
+        displayName: "Manual Approval"
+        inputs:
+          notifyUsers: 'prosenjitmy93@gmail.com'
+          instructions: "Please approve before Terraform stage runs."
+  - stage: 
+    displayName: "Plan and Apply"
+    jobs:
+    - job: terraform
+      displayName: "Terraform Init, Plan, Apply"
+      pool:
+        name: app-agent
+      steps:
+      - checkout: self
+
+      # Terraform INIT
+      - task: TerraformTask@5
+        displayName: "Terraform Init"
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          commandOptions: '-reconfigure'
+          backendServiceArm: 'infra-service-mycloudservice-azureapp'
+          backendAzureRmStorageAccountName: 'pminfra'
+          backendAzureRmContainerName: 'infra-container'
+          backendAzureRmKey: 'infra.tfstate'
+
+      # Terraform PLAN
+      - task: TerraformTask@5
+        displayName: "Terraform Plan"
+        inputs:
+          provider: 'azurerm'
+          command: 'plan'
+          environmentServiceNameAzureRM: 'infra-service-mycloudservice-azureapp'
+
+      
+      # Terraform APPLY
+      - task: TerraformTask@5
+        displayName: "Terraform Apply"
+        inputs:
+          provider: 'azurerm'
+          command: 'apply'
+          commandOptions: '-auto-approve'
+          environmentServiceNameAzureRM: 'infra-service-mycloudservice-azureapp'

@@ -1,0 +1,50 @@
+trigger:
+- master
+
+pool:
+  name: app-agent
+
+stages:
+- stage: BuildAndScan
+  displayName: Build & SonarQube Scan
+  jobs:
+  - job: Build
+    displayName: Build Job
+    steps:
+
+    # 🔹 1. SonarQube PREPARE (MANDATORY)
+    - task: SonarQubePrepare@5
+      inputs:
+        SonarQube: 'SonarQube-Service-Connection'   # exact name
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: 'todo_app'
+        cliProjectName: 'todo_app'
+        cliSources: '.'
+
+    # 🔹 2. Install Dependencies
+    - task: Npm@1
+      displayName: 'Install Node Packages'
+      inputs:
+        command: 'install'
+        workingDir: '$(System.DefaultWorkingDirectory)'
+
+    # 🔹 3. Lint (optional but recommended)
+    - script: |
+        npx eslint .
+      displayName: "ESLint Code Quality Check"
+
+    # 🔹 4. SonarQube ANALYZE
+    - task: SonarQubeAnalyze@5
+      inputs:
+        jdkversion: 'JAVA_HOME_17_X64'
+
+    # 🔹 5. SonarQube PUBLISH (Quality Gate)
+    - task: SonarQubePublish@5
+      inputs:
+        pollingTimeoutSec: '300'
+        failWhenQualityGateFails: true
+
+
+
+#pipel

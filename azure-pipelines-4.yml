@@ -1,0 +1,43 @@
+trigger:
+- main
+
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+# Node.js setup
+- task: NodeTool@0
+  inputs:
+    versionSpec: '18.x'
+  displayName: "Install Node.js"
+# Install dependencies
+- script: |
+   workingDirectory: 'ReactTodoUIMonolith'
+    npm install
+  displayName: "Install npm packages"
+
+- script: npm run build
+  workingDirectory: 'ReactTodoUIMonolith'
+  displayName: Build the Application
+- script: |
+    workingDirectory: 'ReactTodoUIMonolith'|
+    cp -r * artifact
+  displayName: "Prepare Artifact"
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: 'ReactTodoUIMonolith/build'
+    artifactName: 'todoUIArtifact'
+  displayName: Publish Artifact
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'infra-service-mycloudservice-azureapp'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az storage blob upload-batch \
+      --destination mycontainer \
+      --account-name mystorage123 \
+      --source artifact
+  displayName: "Upload Artifact to Storage Account"

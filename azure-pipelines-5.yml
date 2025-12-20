@@ -1,0 +1,98 @@
+trigger:
+- main
+
+variables:
+  agentPool: app-agent
+  terraformVersion: '5'
+  serviceConnection: 'infra-service-mycloudservice-azureapp'
+  storageAccount: 'zqprosenjit'
+  containerName: 'zqprosenjit'
+  tfStateKey: 'zqprosenjit'
+  projectName: 'todo-infra'
+  tfsecVersion: 'v1.26.0'
+
+stages:
+
+# ------------------ STAGE 1 : TERRAFORM PLAN ------------------
+- stage: Terraform_Plan
+  jobs:
+  - job: terraform_plan
+    pool:
+      name: $(agentPool)
+    steps:
+    - task: TerraformTask@5
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendServiceArm: $(serviceConnection)
+        backendAzureRmStorageAccountName: $(storageAccount)
+        backendAzureRmContainerName: $(containerName)
+        backendAzureRmKey: $(tfStateKey)
+
+    - task: TerraformTask@5
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+
+    - task: TerraformTask@5
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        environmentServiceNameAzureRM: $(serviceConnection)
+
+# ------------------ STAGE 2 : SECURITY SCANS ------------------
+- stage: Security_Scans
+  jobs:
+  - job: security_scan
+    pool:
+      name: $(agentPool)
+    steps:
+    - task: tfsec@1
+      inputs:
+        version: $(tfsecVersion)
+        debug: true
+
+    - task: Application security testing@2025
+      inputs:
+        projectName: $(projectName)
+        enableProxy: true
+        enableSastScan: true
+        enableSastBranching: false
+        generatePDFReport: true
+        vulnerabilityThreshold: true
+        failBuildForNewVulnerabilitiesEnabled: true
+        avoidDuplicateScans: true
+        enableDependencyScan: false
+
+# ------------------ STAGE 3 : MANUAL APPROVAL ------------------
+- stage: Manual_Approval
+  jobs:
+  - job: manual_validation
+    pool: server
+    steps:
+    - task: ManualValidation@1
+      inputs:
+        notifyUsers: 'prosenjitmy93@gmail.com'
+
+# ------------------ STAGE 4 : TERRAFORM APPLY ------------------
+- stage: Terraform_Apply
+  dependsOn: Manual_Approval
+  jobs:
+  - job: terraform_apply
+    pool:
+      name: $(agentPool)
+    steps:
+    - task: TerraformTask@5
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendServiceArm: $(serviceConnection)
+        backendAzureRmStorageAccountName: $(storageAccount)
+        backendAzureRmContainerName: $(containerName)
+        backendAzureRmKey: $(tfStateKey)
+
+    - task: TerraformTask@5
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        environmentServiceNameAzureRM: $(serviceConnection)
